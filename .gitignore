@@ -5,3 +5,6 @@ playwright-report/
 .env.local
 .DS_Store
 *.log
+
+# Playwright JSON report (generated)
+results.json

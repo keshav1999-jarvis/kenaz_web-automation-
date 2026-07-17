@@ -20,6 +20,9 @@ test.describe('Kenaz Perfumes - Mobile E2E Journey', () => {
   });
 
   test('Complete Mobile Journey: Collection → PDP → Add to Cart → Verify Cart', async ({ page }) => {
+    // This full E2E journey has many steps and runs on WebKit (slower), so it
+    // needs more than the global 120s timeout — give it 4 minutes.
+    test.setTimeout(240000);
     console.log('Starting Mobile E2E Journey Test');
     
     // Step 1: Navigate to Collection Page

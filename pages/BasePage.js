@@ -12,10 +12,33 @@ class BasePage {
   /**
    * Navigate to a URL. If Cloudflare serves a challenge, it is solved
    * automatically via 2Captcha before returning.
+   *
+   * Retries a few times on transient network errors (e.g. "The Internet
+   * connection appears to be offline") so a momentary blip doesn't fail a test.
    */
-  async navigateTo(url) {
-    await this.page.goto(url);
-    await handleCloudflare(this.page);
+  async navigateTo(url, { retries = 2, waitUntil = 'domcontentloaded', timeout = 30000 } = {}) {
+    let lastError;
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        // Bound each attempt so a hang (this Shopify site's 'load' event is slow
+        // due to marketing scripts) fails fast instead of eating the test budget.
+        await this.page.goto(url, { waitUntil, timeout });
+        await handleCloudflare(this.page);
+        return;
+      } catch (error) {
+        lastError = error;
+        const transient = /offline|net::ERR|ECONN|ETIMEDOUT|EAI_AGAIN|Timeout|Target page.*closed|frame was detached/i.test(
+          error.message || ''
+        );
+        // Stop retrying if the error isn't transient, we're out of attempts, or
+        // the page/context is already closing (retrying then would just hang).
+        if (!transient || attempt === retries || this.page.isClosed()) throw error;
+        // eslint-disable-next-line no-console
+        console.log(`[navigateTo] transient error (attempt ${attempt}/${retries}): ${(error.message || '').split('\n')[0]} — retrying...`);
+        await this.page.waitForTimeout(1500);
+      }
+    }
+    throw lastError;
   }
 
   /**

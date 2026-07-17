@@ -283,16 +283,28 @@ class ProductDetailPage extends BasePage {
    */
   async clickRecommendedProduct() {
     try {
-      const link = this.page.locator(this.recommendationLink).first();
-      if (await link.count() === 0) return;
+      // Recommendations load lazily — scroll to the section to trigger it
+      await this.page.locator('product-recommendations').scrollIntoViewIfNeeded({ timeout: 5000 }).catch(() => {});
+
+      // Wait for at least one recommendation link to render
+      const links = this.page.locator(this.recommendationLink);
+      await links.first().waitFor({ state: 'attached', timeout: 10000 }).catch(() => {});
+      const count = await links.count();
+      if (count === 0) return;
 
       // The recommendations carousel auto-rotates, so reading the href and
-      // navigating directly is more reliable than clicking a moving element
-      const href = await link.getAttribute('href');
-      if (href) {
+      // navigating directly is more reliable than clicking a moving element.
+      // Pick the first link that points to a DIFFERENT product than the current one.
+      const currentPath = new URL(this.page.url()).pathname;
+      for (let i = 0; i < count; i++) {
+        const href = await links.nth(i).getAttribute('href');
+        if (!href) continue;
         const url = href.startsWith('http') ? href : 'https://kenazperfumes.com' + href;
+        if (new URL(url).pathname === currentPath) continue; // skip same product
+
         await this.page.goto(url);
         await this.page.waitForLoadState('domcontentloaded');
+        return;
       }
     } catch (error) {
       // Continue even if there's an error
