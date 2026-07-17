@@ -1,3 +1,5 @@
+const { handleCloudflare } = require('../utils/cloudflare');
+
 /**
  * BasePage - Base class for all page objects
  * Contains common methods used by all page classes
@@ -8,10 +10,12 @@ class BasePage {
   }
 
   /**
-   * Navigate to a URL
+   * Navigate to a URL. If Cloudflare serves a challenge, it is solved
+   * automatically via 2Captcha before returning.
    */
   async navigateTo(url) {
     await this.page.goto(url);
+    await handleCloudflare(this.page);
   }
 
   /**
